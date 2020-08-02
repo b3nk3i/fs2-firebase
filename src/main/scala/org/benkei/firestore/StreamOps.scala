@@ -8,8 +8,6 @@ import cats.implicits._
 
 object StreamOps {
 
-  type BracketThrowable[F[_]] = Bracket[F, Throwable]
-
   /*
   Based on fs2 guide https://fs2.io/guide.html#synchronous-effects,
   Integrate FS2 with query.stream based on Google ApiStreamObserver.
@@ -17,7 +15,7 @@ object StreamOps {
   > use Either to propagate the error back to Stream. (Error fails the stream)
   > unNoneTerminate halts the stream at the first `None`.
    */
-  def stream[F[_]: Bracket[*, Throwable]: ConcurrentEffect: ContextShift](
+  def stream[F[_]: Bracket[*[_], Throwable]: ConcurrentEffect: ContextShift](
     query: Query
   ): fs2.Stream[F, DocumentSnapshot] = {
     fs2.Stream
