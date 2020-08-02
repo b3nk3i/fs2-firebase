@@ -19,15 +19,15 @@ object FutureOps {
   def liftApiFuture[F[_]: Concurrent: ContextShift, A](fa: F[ApiFuture[A]])(implicit ec: ExecutionContextExecutor): F[A] = {
     val lifted: F[A] =
       fa.flatMap { future =>
-        Concurrent[F].cancelable { cb =>
+        F.cancelable { cb =>
           ApiFutures.addCallback(future, new ApiFutureCallback[A] {
             override def onFailure(throwable: Throwable): Unit = cb(Left(throwable))
             override def onSuccess(result: A): Unit = cb(Right(result))
           }, ec)
 
-          Concurrent[F].delay(future.cancel(true)).void
+          F.delay(future.cancel(true)).void
         }
       }
-    lifted.guarantee(ContextShift[F].shift)
+    lifted.guarantee(F.shift)
   }
 }

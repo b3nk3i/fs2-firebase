@@ -1,4 +1,4 @@
-import Dependencies.Libraries
+import Dependencies.{CompilerPlugins, Libraries}
 
 name := "fs2-firebase"
 
@@ -17,6 +17,9 @@ lazy val root = (project in file("."))
       Libraries.Fs2Core,
       Libraries.Fs2Io,
       Libraries.Fs2Reactive,
-      Libraries.FireBase
+      Libraries.FireBase,
+      CompilerPlugins.kindProjector,
+      CompilerPlugins.betterMonadicFor,
+      CompilerPlugins.contextApplied
     )
   )
