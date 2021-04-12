@@ -1,7 +1,6 @@
 package org.benkei.firestore
 
 import cats.effect._
-import cats.effect.implicits._
 import cats.implicits._
 import com.google.api.core.{ApiFuture, ApiFutureCallback, ApiFutures}
 
@@ -12,22 +11,35 @@ import scala.concurrent.ExecutionContextExecutor
  */
 object FutureOps {
 
-  implicit class ApiFutureOps[F[_]: Concurrent: ContextShift, A](fa: F[ApiFuture[A]])(implicit ec: ExecutionContextExecutor) {
-    def futureLift: F[A] = liftApiFuture[F, A](fa)
+  implicit class ApiFutureOps[F[_]: Async, A](fa: F[ApiFuture[A]])(implicit
+    ec: ExecutionContextExecutor
+  ) {
+    def futureLift: F[A] = fromApiFuture[F, A](fa)
   }
 
-  def liftApiFuture[F[_]: Concurrent: ContextShift, A](fa: F[ApiFuture[A]])(implicit ec: ExecutionContextExecutor): F[A] = {
-    val lifted: F[A] =
-      fa.flatMap { future =>
-        F.cancelable { cb =>
-          ApiFutures.addCallback(future, new ApiFutureCallback[A] {
-            override def onFailure(throwable: Throwable): Unit = cb(Left(throwable))
-            override def onSuccess(result: A): Unit = cb(Right(result))
-          }, ec)
-
-          F.delay(future.cancel(true)).void
+  /**
+    * Suspend a [[com.google.api.core.ApiFuture]] into the `F[_]`
+    * context.
+    *
+   * @param fa The [[com.google.api.core.ApiFuture]] to
+    * suspend in `F[_]`
+    */
+  def fromApiFuture[F[_]: Async, A](
+    fa:          F[ApiFuture[A]]
+  )(implicit ec: ExecutionContextExecutor): F[A] =
+    fa.flatMap { future =>
+      F.async[A] { cb =>
+        F.delay {
+          ApiFutures.addCallback(
+            future,
+            new ApiFutureCallback[A] {
+              override def onFailure(throwable: Throwable): Unit = cb(Left(throwable))
+              override def onSuccess(result:    A):         Unit = cb(Right(result))
+            },
+            ec
+          )
         }
+        F.delay(Some(F.void(F.delay(future.cancel(true)))))
       }
-    lifted.guarantee(F.shift)
-  }
+    }
 }
